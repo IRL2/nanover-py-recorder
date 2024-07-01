@@ -19,12 +19,12 @@ import argparse
 import time
 import grpc.aio
 import aiofiles
-from nanover.mdanalysis import recordings
 from nanover.protocol.trajectory import (
     GetFrameRequest,
     TrajectoryServiceStub,
 )
 from nanover.protocol.state import StateStub, SubscribeStateUpdatesRequest
+from nanover.recording.reading import MAGIC_NUMBER
 
 
 async def record_stream(stream, outfile, start_time):
@@ -58,7 +58,7 @@ def perf_counter_µs():
 
 
 async def write_header(target_file):
-    await target_file.write(recordings.MAGIC_NUMBER.to_bytes(8, "little", signed=False))
+    await target_file.write(MAGIC_NUMBER.to_bytes(8, "little", signed=False))
     await target_file.write((2).to_bytes(8, "little", signed=False))
 
 
