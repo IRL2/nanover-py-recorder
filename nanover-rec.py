@@ -13,7 +13,7 @@ Run the script as `python nanover-rec.py recording` to save the state in
 script will attempt to connect to a server running on localhost on the default
 port (38801).
 """
-
+import signal
 import asyncio
 import argparse
 import time
@@ -26,7 +26,9 @@ from nanover.protocol.trajectory import (
 )
 from nanover.protocol.state import StateStub, SubscribeStateUpdatesRequest
 
-
+def signal_handler(sig, frame):
+    print("\nKeyboard interrupt received. Closing files and exiting...")
+    raise KeyboardInterrupt
 async def record_stream(stream, outfile, start_time):
     await write_header(outfile)
     async for frame in stream:
@@ -89,10 +91,29 @@ def handle_user_input():
 
 async def main():
     address, state_path, trajectory_path = handle_user_input()
-    async with aiofiles.open(state_path, "wb") as state_file:
-        async with aiofiles.open(trajectory_path, "wb") as trajectory_file:
-            await record_from_server(address, state_file, trajectory_file)
+
+    # Set up the signal handler
+    signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        async with aiofiles.open(state_path, "wb") as state_file:
+            async with aiofiles.open(trajectory_path, "wb") as trajectory_file:
+                print("Recording started. Press Ctrl+C to stop...")
+                await record_from_server(address, state_file, trajectory_file)
+    except KeyboardInterrupt:
+        print("Recording stopped. Files have been saved and closed.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        # Ensure files are closed (although 'async with' should handle this)
+        if 'state_file' in locals() and not state_file.closed:
+            await state_file.close()
+        if 'trajectory_file' in locals() and not trajectory_file.closed:
+            await trajectory_file.close()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Recording stopped.")
